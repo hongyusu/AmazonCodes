@@ -24,7 +24,7 @@ curl -O https://raw.githubusercontent.com/hongyusu/AmazonCodes/master/AWSExample
 npm install async gm
 zip -r $function.zip $function.js node_modules
 
-#
+# iam
 lambda_execution_role_arn=$(aws iam create-role \
   --role-name "$lambda_execution_role_name" \
   --assume-role-policy-document '{
@@ -45,7 +45,7 @@ lambda_execution_role_arn=$(aws iam create-role \
 )
 echo lambda_execution_role_arn=$lambda_execution_role_arn
 
-
+# policy
 aws iam put-role-policy \
   --role-name "$lambda_execution_role_name" \
   --policy-name "$lambda_execution_access_policy_name" \
@@ -79,17 +79,7 @@ aws iam put-role-policy \
   
   
   
-  # upload package
-  aws lambda upload-function \
-    --function-name "$function" \
-    --function-zip "$function.zip" \
-    --role "$lambda_execution_role_arn" \
-    --mode event \
-    --handler "$function.handler" \
-    --timeout 30 \
-    --runtime nodejs
-  
-  
+# upload
 aws lambda create-function \
 	--region us-west-2 \
 	--function-name "$function" \
@@ -103,7 +93,7 @@ aws lambda create-function \
   
   
   
-  
+# fake s3 event
 cat > $function-data.json <<EOM
 {  
    "Records":[  
@@ -145,13 +135,13 @@ cat > $function-data.json <<EOM
 }
 EOM
 
-
+# pass event
 aws lambda invoke-async \
   --function-name "$function" \
   --invoke-args "$function-data.json"
 
 
-# 
+# iam of s3
 lambda_invocation_role_arn=$(aws iam create-role \
   --role-name "$lambda_invocation_role_name" \
   --assume-role-policy-document '{
@@ -177,7 +167,7 @@ lambda_invocation_role_arn=$(aws iam create-role \
 )
 echo lambda_invocation_role_arn=$lambda_invocation_role_arn
   
-  
+# policy of s3
 aws iam put-role-policy \
   --role-name "$lambda_invocation_role_name" \
   --policy-name "$lambda_invocation_access_policy_name" \
@@ -197,16 +187,24 @@ aws iam put-role-policy \
    }'
   
   
-  
-  
-   # get function arn
-   
-   lambda_function_arn=$(aws lambda get-function-configuration \
-     --function-name "$function" \
-     --output text \
-     --query 'FunctionArn'
-   )
-   echo lambda_function_arn=$lambda_function_arn
+# lambda arn
+lambda_function_arn=$(aws lambda get-function-configuration \
+	 --function-name "$function" \
+	 --output text \
+	 --query 'FunctionArn'
+)
+echo lambda_function_arn=$lambda_function_arn
+
+# connect s3 with lambda
+aws s3api put-bucket-notification \
+  --bucket "$source_bucket" \
+  --notification-configuration '{
+    "CloudFunctionConfiguration": {
+      "CloudFunction": "'$lambda_function_arn'",
+      "InvocationRole": "'$lambda_invocation_role_arn'",
+      "Event": "s3:ObjectCreated:*"
+    }
+  }'
   
   
   
