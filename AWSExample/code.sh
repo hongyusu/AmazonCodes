@@ -206,10 +206,15 @@ aws s3api put-bucket-notification \
     }
   }'
   
-  
-  
-  
-  
+# test lambda with real s3 event
+
+aws s3 ls s3://$source_bucket
+aws s3 ls s3://$target_bucket
+aws s3 rm s3://$source_bucket/HappyFace.jpg
+aws s3 rm s3://$source_bucket/resized-HappyFace.jpg
+aws s3 cp HappyFace.jpg s3://$source_bucket/
+aws s3 ls s3://$source_bucket
+aws s3 ls s3://$target_bucket  
   
   
   
